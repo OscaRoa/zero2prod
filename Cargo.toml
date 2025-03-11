@@ -2,8 +2,21 @@
 name = "zero2prod"
 version = "0.1.0"
 edition = "2024"
+authors = ["Oscar Roa <sm.composed109@passinbox.com>"]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "zero2prod"
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "linker=clang", "-C", "link-arg=-fuse-ld=lld"]
 
 [dependencies]
+actix-web = "4.10.2"
+tokio = { version = "1.44.0", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+reqwest = "0.12.12"
