@@ -1,5 +1,5 @@
 use actix_web::dev::Server;
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get};
 use std::net::TcpListener;
 
 #[get("/health-check")]
