@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Oscar Roa <sm.composed109@passinbox.com>"]
 
-[lib]
-path = "src/lib.rs"
-
 [[bin]]
 path = "src/main.rs"
 name = "zero2prod"
+
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 actix-web = "4.10.2"

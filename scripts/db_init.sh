@@ -3,6 +3,13 @@ set -x
 set -eo pipefail
 source .env
 
+# Ensure podman-compose is installed
+if ! [ -x "$(command -v podman-compose)" ]; then
+  echo >&2 "Error: podman-compose is not installed."
+  exit 1
+fi
+
+# Ensure sqlx is installed
 if ! [ -x "$(command -v sqlx)" ]; then
   echo >&2 "Error: sqlx is not installed."
   echo >&2 "Use:"
@@ -11,55 +18,51 @@ if ! [ -x "$(command -v sqlx)" ]; then
   exit 1
 fi
 
-if ! [ -x "$(command -v podman)" ]; then
-  echo >&2 "Error: podman is not installed."
-  echo >&2 "Visit: https://podman.io/docs/installation"
-  echo >&2 " for installation instructions on your environment."
-  exit 1
-fi
+# Start the db container if it's not already running
+podman-compose up --no-recreate -d
+podman-compose run -d web
 
-DB_PORT="${POSTGRES_PORT}"
+# Wait for the db container to be ready
+until podman-compose exec db pg_isready -U postgres; do
+  >&2 echo "Postgres is unavailable - sleeping"
+  sleep 1
+done
 
-# Launch postgres using Docker
-if [[ -z "${SKIP_DB_INIT}" ]]
-then
-  CONTAINER_NAME="postgres"
+# Create the user and grant permissions
+CREATE_USER_QUERY=$(cat <<EOF
+DO \$$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${APP_USER}') THEN
+    CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';
+  END IF;
+END
+\$$;
+EOF
+)
 
-  podman run \
-    --env POSTGRES_USER="${SUPERUSER}" \
-    --env POSTGRES_PASSWORD="${SUPERUSER_PWD}" \
-    --health-cmd="pg_isready -U ${SUPERUSER} || exit 1" \
-    --health-interval="1s" \
-    --health-timeout="5s" \
-    --health-retries=5 \
-    --publish "${DB_PORT}":5432 \
-    --detach \
-    --name "${CONTAINER_NAME}" \
-    --replace \
-    postgres -N 1000
+# Grant CREATEDB permission if it hasn't already been granted
+GRANT_CREATEDB_QUERY=$(cat <<EOF
+DO \$$
+BEGIN
+  IF NOT EXISTS (
+    SELECT FROM pg_catalog.pg_roles
+    WHERE rolname = '${APP_USER}' AND rolcreatedb = TRUE
+  ) THEN
+    ALTER USER ${APP_USER} CREATEDB;
+  END IF;
+END
+\$$;
+EOF
+)
+podman-compose exec db psql -U postgres -c "${CREATE_USER_QUERY}"
+podman-compose exec db psql -U postgres -c "${GRANT_CREATEDB_QUERY}"
 
-  # Wait for Postgres to be ready to accept connections
-  until [ \
-    "$(podman inspect -f "{{.State.Health.Status}}" ${CONTAINER_NAME})" == \
-    "healthy" \
-  ]; do
-    >&2 echo "Postgres is still unavailable - sleeping"
-    sleep 1
-  done
-
-  >&2 echo "Postgres is up and running on port ${DB_PORT}!"
-
-  # Create the application user
-  CREATE_QUERY="CREATE USER ${APP_USER} WITH PASSWORD '${APP_USER_PWD}';"
-  podman exec -it "${CONTAINER_NAME}" psql -U "${SUPERUSER}" -c "${CREATE_QUERY}"
-  # Grant create db privileges to the app user
-  GRANT_QUERY="ALTER USER ${APP_USER} CREATEDB;"
-  podman exec -it "${CONTAINER_NAME}" psql -U "${SUPERUSER}" -c "${GRANT_QUERY}"
-fi
-
-
-DATABASE_URL=postgres://${APP_USER}:${APP_USER_PWD}@localhost:${DB_PORT}/${APP_DB_NAME}
+# Set the DATABASE_URL to point to the db container
+DATABASE_URL=postgres://${APP_USER}:${APP_USER_PWD}@localhost:5433/${APP_DB_NAME}
 export DATABASE_URL
+
+# Create the database and run migrations
 sqlx database create
 sqlx migrate run
+
 >&2 echo "Postgres has been migrated, ready to go!"
