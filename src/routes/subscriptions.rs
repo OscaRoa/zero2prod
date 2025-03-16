@@ -1,6 +1,4 @@
-use actix_web::post;
-use crate::HttpResponse;
-use crate::web;
+use actix_web::{post, web, HttpResponse};
 
 #[derive(serde::Deserialize)]
 struct FormData {
