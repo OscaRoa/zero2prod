@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    types: [opened, synchroniza, reopened]
+    types: [opened, synchronize, reopened]
     branches: [ "master" ]
 
 env:
@@ -55,7 +55,7 @@ jobs:
           PGPASSWORD="password" psql -U "postgres" -h "localhost" -c "${GRANT_QUERY}"
 
       - name: Migrate database
-        run: SKIP_DB_INIT=true ./scripts/init_db.sh
+        run: SKIP_DB_INIT=true ./scripts/db_init.sh
 
       - name: Run tests
         run: cargo test --verbose
