@@ -20,7 +20,7 @@ async fn spawn_app() -> TestApp {
     let connection_pool = configure_database(&configuration.database).await;
 
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
-    let _ = tokio::spawn(server);
+    tokio::spawn(server);
     TestApp {
         address,
         db_pool: connection_pool,
@@ -63,7 +63,7 @@ async fn health_check_works() {
     // Act
     let response = client
         // Use the returned application address
-        .get(&format!("{}/health-check", &app.address))
+        .get(format!("{}/health-check", &app.address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -82,7 +82,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     // Act
     let response = client
-        .post(&format!("{}/subscriptions", &app.address))
+        .post(format!("{}/subscriptions", &app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -115,7 +115,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     for (invalid_body, error_message) in test_cases {
         // Act
         let response = client
-            .post(&format!("{}/subscriptions", &app.address))
+            .post(format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
