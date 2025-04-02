@@ -1,3 +1,5 @@
+use sqlx::PgPool;
+
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
@@ -27,4 +29,9 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .add_source(config::File::new("configuration.yaml", config::FileFormat::Yaml))
         .build()?;
     settings.try_deserialize::<Settings>()
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: PgPool,
 }
