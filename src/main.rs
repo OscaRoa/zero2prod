@@ -1,4 +1,3 @@
-use axum::extract::State;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tracing::subscriber::set_global_default;
@@ -35,5 +34,5 @@ async fn main() -> Result<(), std::io::Error> {
     let address = format!("127.0.0.1:{}", configuration.application_port);
     let listener = TcpListener::bind(address).await.unwrap();
 
-    run(listener, State(state)).await
+    run(listener, state).await
 }
