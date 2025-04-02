@@ -6,7 +6,7 @@ use tracing_log::LogTracer;
 use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt};
 use zero2prod::{configuration::get_configuration, startup::run};
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     LogTracer::init().expect("Failed to set logger");
 
