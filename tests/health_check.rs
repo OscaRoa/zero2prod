@@ -1,4 +1,3 @@
-use axum::extract::State;
 use axum::http::StatusCode;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use tokio::net::TcpListener;
@@ -22,15 +21,14 @@ async fn spawn_app() -> TestAppNetwork {
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration.database).await;
 
-    let state = AppState {
-        db: connection_pool.clone(),
-    };
+    let server_pool = connection_pool.clone();
+    let state = AppState { db: server_pool };
 
-    let server = run(listener, State(state));
+    let server = run(listener, state);
     tokio::spawn(server.into_future());
     TestAppNetwork {
         address,
-        db_pool: connection_pool.clone(),
+        db_pool: connection_pool,
     }
 }
 
