@@ -26,6 +26,7 @@ tracing-bunyan-formatter = "0.3.10"
 tracing-log = "0.2.0"
 axum = { version = "0.8.3", features = ["macros"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
+tower-http = { version = "0.6.2", features = ["trace"] }
 
 [dependencies.sqlx]
 version = "0.8.3"
