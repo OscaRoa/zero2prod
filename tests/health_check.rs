@@ -19,15 +19,12 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
         init_subscriber(subscriber);
     };
 });
-
-pub struct TestAppNetwork {
+struct TestAppNetwork {
     pub address: String,
     pub db_pool: PgPool,
 }
 
 async fn spawn_app() -> TestAppNetwork {
-    LazyLock::force(&TRACING);
-
     LazyLock::force(&TRACING);
 
     let listener = TcpListener::bind("127.0.0.1:0")
@@ -126,7 +123,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 }
 
 #[tokio::test]
-async fn subscribe_returns_a_400_when_data_is_missing() {
+async fn subscribe_returns_422_form_parsing_error_by_missing_parameters() {
     // Arrange
     let app = spawn_app().await;
     let client = reqwest::Client::new();
