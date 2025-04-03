@@ -1,15 +1,15 @@
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
-use std::net::TcpListener;
+use tokio::net::TcpListener;
+use zero2prod::telemetry::{get_subscriber, init_subscriber};
 use zero2prod::{
-    configuration::get_configuration,
+    configuration::{AppState, get_configuration},
     startup::run,
-    telemetry::{get_subscriber, init_subscriber},
 };
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    let subscriber = get_subscriber("zero2prod".into(), "info".into(), std::io::stdout);
+    let subscriber = get_subscriber("zero2prod".to_string(), "info".to_string(), std::io::stdout);
     init_subscriber(subscriber);
 
     let configuration = get_configuration().expect("Failed to read configuration");
@@ -18,8 +18,10 @@ async fn main() -> Result<(), std::io::Error> {
         .await
         .expect("Failed to connect to postgres");
 
-    let address = format!("127.0.0.1:{}", configuration.application_port);
-    let listener = TcpListener::bind(address)?;
+    let state = AppState { db: connection_pool };
 
-    run(listener, connection_pool)?.await
+    let address = format!("127.0.0.1:{}", configuration.application_port);
+    let listener = TcpListener::bind(address).await?;
+
+    run(listener, state).await
 }

@@ -1,9 +1,10 @@
+use axum::http::StatusCode;
 use secrecy::{ExposeSecret, SecretString};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::TcpListener;
 use std::sync::LazyLock;
+use tokio::net::TcpListener;
 use uuid::Uuid;
-use zero2prod::configuration::{DatabaseSettings, get_configuration};
+use zero2prod::configuration::{AppState, DatabaseSettings, get_configuration};
 use zero2prod::startup::run;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
@@ -19,16 +20,19 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
     };
 });
 
-pub struct TestApp {
+pub struct TestAppNetwork {
     pub address: String,
     pub db_pool: PgPool,
 }
 
-async fn spawn_app() -> TestApp {
+async fn spawn_app() -> TestAppNetwork {
     LazyLock::force(&TRACING);
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
-    // We retrieve the port assigned to us by the OS
+    LazyLock::force(&TRACING);
+
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
 
@@ -36,9 +40,12 @@ async fn spawn_app() -> TestApp {
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration.database).await;
 
-    let server = run(listener, connection_pool.clone()).expect("Failed to bind address");
-    tokio::spawn(server);
-    TestApp {
+    let server_pool = connection_pool.clone();
+    let state = AppState { db: server_pool };
+
+    let server = run(listener, state);
+    tokio::spawn(server.into_future());
+    TestAppNetwork {
         address,
         db_pool: connection_pool,
     }
@@ -49,7 +56,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     let maintenance_settings = DatabaseSettings {
         database_name: "postgres".to_string(),
         username: "postgres".to_string(),
-        password: SecretString::from("password".to_string()),
+        password: SecretString::from("password"),
         ..config.clone()
     };
     let mut connection = PgConnection::connect(maintenance_settings.connection_string().expose_secret())
@@ -141,11 +148,11 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 
         // Assert
         assert_eq!(
-            400,
+            StatusCode::UNPROCESSABLE_ENTITY,
             response.status().as_u16(),
             // Additional customised error message on test failure
-            "The API did not fail with 400 Bad Request when the payload was {}.",
-            error_message
+            "The API did not fail with 422 Unprocessable Entity when the payload was {}.",
+            error_message,
         );
     }
 }

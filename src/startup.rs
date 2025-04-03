@@ -1,22 +1,16 @@
+use crate::configuration::AppState;
 use crate::routes::{health_check, subscribe};
-use actix_web::dev::Server;
-use actix_web::{App, HttpServer, web};
-use sqlx::PgPool;
-use std::net::TcpListener;
-use tracing_actix_web::TracingLogger;
+use crate::telemetry::get_http_tracing_layer;
+use axum::Router;
+use axum::routing::{get, post};
+use axum::serve::Serve;
+use tokio::net::TcpListener as TokioTcpListener;
 
-pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
-    let db_pool = web::Data::new(db_pool);
-
-    let server = HttpServer::new(move || {
-        App::new()
-            .wrap(TracingLogger::default())
-            .service(health_check)
-            .service(subscribe)
-            .app_data(db_pool.clone())
-    })
-    .listen(listener)?
-    .run();
-
-    Ok(server)
+pub fn run(listener: TokioTcpListener, state: AppState) -> Serve<TokioTcpListener, Router, Router> {
+    let app = Router::new()
+        .route("/health-check", get(health_check))
+        .route("/subscriptions", post(subscribe))
+        .layer(get_http_tracing_layer())
+        .with_state(state.db);
+    axum::serve(listener, app)
 }
