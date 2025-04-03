@@ -31,13 +31,13 @@ pub async fn subscribe(
 async fn insert_subscriber(connection_pool: &PgPool, form: &FormData) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        INSERT INTO subscriptions (id, email, name, subscribed_at)
-        VALUES ($1, $2, $3, $4)
-        "#,
+INSERT INTO subscriptions (id, email, name, subscribed_at)
+VALUES ($1, $2, $3, $4)
+"#,
         Uuid::new_v7(Timestamp::now(ContextV7::new())),
         form.email,
         form.name,
-        Utc::now(),
+        Utc::now()
     )
     .execute(connection_pool)
     .await
