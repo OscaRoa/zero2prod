@@ -56,7 +56,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> PgPool {
     let maintenance_settings = DatabaseSettings {
         database_name: "postgres".to_string(),
         username: "postgres".to_string(),
-        password: SecretString::from("password")),
+        password: SecretString::from("password"),
         ..config.clone()
     };
     let mut connection = PgConnection::connect(maintenance_settings.connection_string().expose_secret())
