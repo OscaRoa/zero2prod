@@ -1,7 +1,6 @@
-use axum::body::Body;
 use axum::extract::MatchedPath;
 use axum::http::Request;
-use tower_http::trace::{HttpMakeClassifier, TraceLayer};
+use tower_http::trace::MakeSpan;
 use tracing::subscriber::set_global_default;
 use tracing::{Span, Subscriber, info_span};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
@@ -26,8 +25,11 @@ pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
     set_global_default(subscriber).expect("Failed to set subscriber")
 }
 
-pub fn get_http_tracing_layer() -> TraceLayer<HttpMakeClassifier, fn(&Request<Body>) -> Span> {
-    TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+#[derive(Clone)]
+pub struct MakeSpanWithRequestId;
+
+impl<Body> MakeSpan<Body> for MakeSpanWithRequestId {
+    fn make_span(&mut self, request: &Request<Body>) -> Span {
         let matched_path = request.extensions().get::<MatchedPath>().map(MatchedPath::as_str);
         info_span!(
             "http_request",
@@ -35,5 +37,5 @@ pub fn get_http_tracing_layer() -> TraceLayer<HttpMakeClassifier, fn(&Request<Bo
             matched_path,
             request_id = Uuid::new_v4().to_string(),
         )
-    })
+    }
 }
