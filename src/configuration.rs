@@ -1,7 +1,7 @@
 use secrecy::{ExposeSecret, SecretString};
+use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
-use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -63,7 +63,9 @@ impl TryFrom<String> for Environment {
         match value.to_lowercase().as_str() {
             "local" => Ok(Self::Local),
             "production" => Ok(Self::Production),
-            other => Err(format!("{other} is not a supported environment.\nUse either 'local' or 'production'."))
+            other => Err(format!(
+                "{other} is not a supported environment.\nUse either 'local' or 'production'."
+            )),
         }
     }
 }
@@ -78,12 +80,8 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .expect("Failed to parse APP_ENVIRONMENT.");
     let environment_filename = format!("{}.yaml", environment.as_str());
     let settings = config::Config::builder()
-        .add_source(config::File::from(
-            configuration_directory.join("base.yaml"),
-        ))
-        .add_source(config::File::from(
-            configuration_directory.join(environment_filename),
-        ))
+        .add_source(config::File::from(configuration_directory.join("base.yaml")))
+        .add_source(config::File::from(configuration_directory.join(environment_filename)))
         // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
         .add_source(
