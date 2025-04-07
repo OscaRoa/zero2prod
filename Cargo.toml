@@ -28,6 +28,8 @@ axum = { version = "0.8.3", features = ["macros"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 tower-http = { version = "0.6.2", features = ["trace"] }
 serde-aux = "4.6.0"
+unicode-segmentation = "1.12.0"
+validator = "0.20.0"
 
 [dependencies.sqlx]
 version = "0.8.3"
@@ -42,4 +44,9 @@ features = [
 ]
 
 [dev-dependencies]
+claims = "0.8.0"
+fake = "4.3.0"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
+rand = "0.9.0"
 reqwest = "0.12.12"
