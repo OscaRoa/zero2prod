@@ -1,5 +1,5 @@
-use crate::domain::subscriber_name::SubscriberName;
 use crate::domain::SubscriberEmail;
+use crate::domain::subscriber_name::SubscriberName;
 
 #[derive(Debug)]
 pub struct NewSubscriber {
