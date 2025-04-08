@@ -8,6 +8,7 @@ use zero2prod::configuration::{AppState, DatabaseSettings, get_configuration};
 use zero2prod::startup::run;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
+// Ensure that the `tracing` stack is only initialised once using `once_cell`
 static TRACING: LazyLock<()> = LazyLock::new(|| {
     let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
@@ -123,7 +124,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 }
 
 #[tokio::test]
-async fn subscribe_returns_422_form_parsing_error_by_missing_parameters() {
+async fn subscribe_returns_a_422_when_data_is_missing() {
     // Arrange
     let app = spawn_app().await;
     let client = reqwest::Client::new();
@@ -133,12 +134,12 @@ async fn subscribe_returns_422_form_parsing_error_by_missing_parameters() {
         ("", "missing both name and email"),
     ];
 
-    for (invalid_body, error_message) in test_cases {
+    for (body, error_message) in test_cases {
         // Act
         let response = client
-            .post(format!("{}/subscriptions", &app.address))
+            .post(format!("{}/subscriptions", app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
+            .body(body)
             .send()
             .await
             .expect("Failed to execute request.");
@@ -147,9 +148,39 @@ async fn subscribe_returns_422_form_parsing_error_by_missing_parameters() {
         assert_eq!(
             StatusCode::UNPROCESSABLE_ENTITY,
             response.status().as_u16(),
-            // Additional customised error message on test failure
             "The API did not fail with 422 Unprocessable Entity when the payload was {}.",
-            error_message,
+            error_message
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_a_400_when_fields_are_present_but_invalid() {
+    // Arrange
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=Ursula&email=", "empty email"),
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
+    ];
+
+    for (body, error_message) in test_cases {
+        // Act
+        let response = client
+            .post(format!("{}/subscriptions", app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        // Assert
+        assert_eq!(
+            StatusCode::BAD_REQUEST,
+            response.status().as_u16(),
+            "The API did not return a 400 Bad Request when the payload was {}.",
+            error_message
         );
     }
 }
