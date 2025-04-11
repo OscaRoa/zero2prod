@@ -1,12 +1,34 @@
+use crate::domain::SubscriberEmail;
+use crate::email_client::EmailClient;
 use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
+use std::sync::Arc;
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
+}
+
+#[derive(serde::Deserialize)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+    pub authorization_token: SecretString,
+    pub timeout_milliseconds: u64,
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
+
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -97,4 +119,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    pub email_client: Arc<EmailClient>,
 }
