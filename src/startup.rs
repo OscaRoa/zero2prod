@@ -8,6 +8,7 @@ use axum::serve::Serve;
 use reqwest::Url;
 use sqlx::postgres::PgPoolOptions;
 use std::io::Error;
+use std::sync::Arc;
 use tokio::net::{TcpListener as TokioTcpListener, TcpListener};
 use tower_http::trace::TraceLayer;
 
@@ -32,7 +33,7 @@ pub async fn build(configuration: Settings) -> Result<App, Error> {
 
     let state = AppState {
         db: connection_pool,
-        email_client,
+        email_client: Arc::new(email_client),
     };
 
     let address = format!("{}:{}", configuration.application.host, configuration.application.port);

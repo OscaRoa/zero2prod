@@ -1,7 +1,7 @@
 use reqwest::Url;
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use tokio::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{AppState, DatabaseSettings, get_configuration};
@@ -53,7 +53,7 @@ pub async fn spawn_app() -> TestAppNetwork {
 
     let state = AppState {
         db: server_pool,
-        email_client,
+        email_client: Arc::new(email_client),
     };
 
     let server = run(listener, state);

@@ -4,6 +4,7 @@ use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
+use std::sync::Arc;
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -118,5 +119,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
-    pub email_client: EmailClient,
+    pub email_client: Arc<EmailClient>,
 }
