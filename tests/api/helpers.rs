@@ -1,12 +1,9 @@
-use reqwest::Url;
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::sync::{Arc, LazyLock};
-use tokio::net::TcpListener;
+use std::sync::LazyLock;
 use uuid::Uuid;
-use zero2prod::configuration::{AppState, DatabaseSettings, get_configuration};
-use zero2prod::email_client::EmailClient;
-use zero2prod::startup::run;
+use zero2prod::configuration::{DatabaseSettings, get_configuration};
+use zero2prod::startup::{Application, get_connection_pool};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 static TRACING: LazyLock<()> = LazyLock::new(|| {
@@ -21,46 +18,48 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
     };
 });
 
-pub struct TestAppNetwork {
+pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
 }
 
-pub async fn spawn_app() -> TestAppNetwork {
+impl TestApp {
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{}/subscriptions", self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+}
+
+pub async fn spawn_app() -> TestApp {
     LazyLock::force(&TRACING);
 
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("Failed to bind random port");
-    let port = listener.local_addr().unwrap().port();
-    let address = format!("http://127.0.0.1:{}", port);
-
-    let mut configuration = get_configuration().expect("Failed to read configuration.");
-    configuration.database.database_name = Uuid::new_v4().to_string();
-    let connection_pool = configure_database(&configuration.database).await;
-
-    let server_pool = connection_pool.clone();
-
-    let sender_email = configuration.email_client.sender().expect("Invalid email address");
-    let base_url = Url::parse(configuration.email_client.base_url.as_str()).expect("Failed to parse URL");
-    let timeout = configuration.email_client.timeout();
-    let email_client = EmailClient::new(
-        base_url,
-        sender_email,
-        configuration.email_client.authorization_token,
-        timeout,
-    );
-
-    let state = AppState {
-        db: server_pool,
-        email_client: Arc::new(email_client),
+    let configuration = {
+        let mut c = get_configuration().expect("Failed to read configuration.");
+        // Use a different database for each test case
+        c.database.database_name = Uuid::new_v4().to_string();
+        // Use a random OS port
+        c.application.port = 0;
+        c
     };
 
-    let server = run(listener, state);
-    tokio::spawn(server.into_future());
-    TestAppNetwork {
+    // Create and migrate the database
+    configure_database(&configuration.database).await;
+
+    let application = Application::build(configuration.clone())
+        .await
+        .expect("Failed to build application");
+    let address = format!("http://127.0.0.1:{}", application.port());
+
+    tokio::spawn(application.run_until_stopped());
+
+    TestApp {
         address,
-        db_pool: connection_pool,
+        db_pool: get_connection_pool(&configuration.database),
     }
 }
 
