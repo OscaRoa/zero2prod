@@ -1,4 +1,5 @@
 use crate::domain::SubscriberEmail;
+use crate::email_client::EmailClient;
 use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::PgPool;
@@ -117,4 +118,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
+    pub email_client: EmailClient,
 }

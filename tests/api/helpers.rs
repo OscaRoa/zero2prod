@@ -20,6 +20,7 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
         init_subscriber(subscriber);
     };
 });
+
 pub struct TestAppNetwork {
     pub address: String,
     pub db_pool: PgPool,
@@ -39,7 +40,6 @@ pub async fn spawn_app() -> TestAppNetwork {
     let connection_pool = configure_database(&configuration.database).await;
 
     let server_pool = connection_pool.clone();
-    let state = AppState { db: server_pool };
 
     let sender_email = configuration.email_client.sender().expect("Invalid email address");
     let base_url = Url::parse(configuration.email_client.base_url.as_str()).expect("Failed to parse URL");
@@ -51,7 +51,12 @@ pub async fn spawn_app() -> TestAppNetwork {
         timeout,
     );
 
-    let server = run(listener, state, email_client);
+    let state = AppState {
+        db: server_pool,
+        email_client,
+    };
+
+    let server = run(listener, state);
     tokio::spawn(server.into_future());
     TestAppNetwork {
         address,
