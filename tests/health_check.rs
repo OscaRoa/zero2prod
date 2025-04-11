@@ -1,10 +1,12 @@
 use axum::http::StatusCode;
+use reqwest::Url;
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::LazyLock;
 use tokio::net::TcpListener;
 use uuid::Uuid;
 use zero2prod::configuration::{AppState, DatabaseSettings, get_configuration};
+use zero2prod::email_client::EmailClient;
 use zero2prod::startup::run;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
@@ -41,7 +43,11 @@ async fn spawn_app() -> TestAppNetwork {
     let server_pool = connection_pool.clone();
     let state = AppState { db: server_pool };
 
-    let server = run(listener, state);
+    let sender_email = configuration.email_client.sender().expect("Invalid email address");
+    let base_url = Url::parse(configuration.email_client.base_url.as_str()).expect("Failed to parse URL");
+    let email_client = EmailClient::new(base_url, sender_email, configuration.email_client.authorization_token);
+
+    let server = run(listener, state, email_client);
     tokio::spawn(server.into_future());
     TestAppNetwork {
         address,
