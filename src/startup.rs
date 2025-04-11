@@ -69,8 +69,7 @@ fn run(listener: TokioTcpListener, state: AppState) -> AppServer {
         .route("/health-check", get(health_check))
         .route("/subscriptions", post(subscribe))
         .layer(TraceLayer::new_for_http().make_span_with(MakeSpanWithRequestId))
-        .with_state(state.db)
-        .with_state(state.email_client);
+        .with_state(state);
 
     axum::serve(listener, app)
 }
