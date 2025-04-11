@@ -45,7 +45,13 @@ async fn spawn_app() -> TestAppNetwork {
 
     let sender_email = configuration.email_client.sender().expect("Invalid email address");
     let base_url = Url::parse(configuration.email_client.base_url.as_str()).expect("Failed to parse URL");
-    let email_client = EmailClient::new(base_url, sender_email, configuration.email_client.authorization_token);
+    let timeout = configuration.email_client.timeout();
+    let email_client = EmailClient::new(
+        base_url,
+        sender_email,
+        configuration.email_client.authorization_token,
+        timeout,
+    );
 
     let server = run(listener, state, email_client);
     tokio::spawn(server.into_future());
