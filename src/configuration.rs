@@ -36,6 +36,7 @@ pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+    pub base_url: String,
 }
 
 #[derive(serde::Deserialize, Clone)]
@@ -120,4 +121,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 pub struct AppState {
     pub db: PgPool,
     pub email_client: Arc<EmailClient>,
+    pub base_url: String,
 }

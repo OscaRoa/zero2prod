@@ -1,6 +1,6 @@
 use crate::configuration::{AppState, DatabaseSettings, Settings};
 use crate::email_client::EmailClient;
-use crate::routes::{health_check, subscribe};
+use crate::routes::{confirm, health_check, subscribe};
 use crate::telemetry::MakeSpanWithRequestId;
 use axum::Router;
 use axum::routing::{get, post};
@@ -45,6 +45,7 @@ impl Application {
         let state = AppState {
             db: connection_pool,
             email_client: Arc::new(email_client),
+            base_url: configuration.application.base_url,
         };
         let server = run(listener, state);
 
@@ -67,6 +68,7 @@ pub fn get_connection_pool(db_settings: &DatabaseSettings) -> PgPool {
 fn run(listener: TokioTcpListener, state: AppState) -> AppServer {
     let app = Router::new()
         .route("/health-check", get(health_check))
+        .route("/subscriptions/confirm", get(confirm))
         .route("/subscriptions", post(subscribe))
         .layer(TraceLayer::new_for_http().make_span_with(MakeSpanWithRequestId))
         .with_state(state);

@@ -53,7 +53,7 @@ async fn subscribe_persists_the_new_subscriber() {
 async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     // Arrange
     let app = spawn_app().await;
-    let body= "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/emails"))
         .and(method("POST"))
@@ -69,7 +69,7 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
 async fn subscribe_sends_a_confirmation_email_with_a_link() {
     // Arrange
     let app = spawn_app().await;
-    let body= "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/emails"))
         .and(method("POST"))
@@ -82,24 +82,10 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
 
     // Assert
     // Get the first intercepted request
-    let email_request= &app.email_server.received_requests().await.unwrap()[0];
-    // Parse the body as JSON, starting from raw bytes
-    let body: serde_json::Value = serde_json::from_slice(&email_request.body)
-        .unwrap();
-
-    let get_link= |s: &str| {
-        let links: Vec<_> = linkify::LinkFinder::new()
-            .links(s)
-            .filter(|l| *l.kind() == linkify::LinkKind::Url)
-            .collect();
-        assert_eq!(links.len(), 1);
-        links[0].as_str().to_owned()
-    };
-
-    let html_link= get_link(body["Html"].as_str().unwrap());
-    let text_link= get_link(body["Text"].as_str().unwrap());
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_links(email_request);
     // The two links should be identical
-    assert_eq!(html_link, text_link);
+    assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
 
 #[tokio::test]
