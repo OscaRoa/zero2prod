@@ -8,7 +8,6 @@ use axum::serve::Serve;
 use reqwest::Url;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use std::io::Error;
 use std::sync::Arc;
 use tokio::net::{TcpListener as TokioTcpListener, TcpListener};
 use tower_http::trace::TraceLayer;
@@ -28,7 +27,7 @@ pub struct AppState {
 }
 
 impl Application {
-    pub async fn build(configuration: Settings) -> Result<Application, Error> {
+    pub async fn build(configuration: Settings) -> Result<Application, std::io::Error> {
         let connection_pool = Application::get_connection_pool(&configuration.database);
 
         let sender_email = configuration
