@@ -11,7 +11,7 @@ if ! [ -x "$(command -v sqlx)" ]; then
 fi
 
 # Check if a custom parameter has been set, otherwise use default values
-DB_PORT="${DB_PORT:=5433}"
+DB_PORT="${DB_PORT:=5432}"
 SUPERUSER="${SUPERUSER:=postgres}"
 SUPERUSER_PWD="${SUPERUSER_PWD:=password}"
 APP_USER="${APP_USER:=app}"
@@ -37,7 +37,7 @@ then
       --health-interval=1s \
       --health-timeout=5s \
       --health-retries=5 \
-      --publish "${DB_PORT}":5433 \
+      --publish "${DB_PORT}":5432 \
       --detach \
       --name "${CONTAINER_NAME}" \
       postgres -N 1000
