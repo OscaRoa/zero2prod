@@ -28,7 +28,7 @@ jobs:
           POSTGRES_DB: postgres
           POSTGRES_PORT: 5433
         ports:
-          - 5432:5432
+          - 5433:5433
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
