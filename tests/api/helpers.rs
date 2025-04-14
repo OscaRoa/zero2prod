@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::configuration::{DatabaseSettings, get_configuration};
-use zero2prod::startup::{Application, get_connection_pool};
+use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 
 static TRACING: LazyLock<()> = LazyLock::new(|| {
@@ -93,7 +93,7 @@ pub async fn spawn_app() -> TestApp {
     TestApp {
         address,
         port,
-        db_pool: get_connection_pool(&configuration.database),
+        db_pool: Application::get_connection_pool(&configuration.database),
         email_server,
     }
 }

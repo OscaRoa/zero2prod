@@ -29,7 +29,7 @@ pub struct AppState {
 
 impl Application {
     pub async fn build(configuration: Settings) -> Result<Application, Error> {
-        let connection_pool = get_connection_pool(&configuration.database);
+        let connection_pool = Application::get_connection_pool(&configuration.database);
 
         let sender_email = configuration
             .email_client
@@ -54,7 +54,7 @@ impl Application {
             email_client: Arc::new(email_client),
             base_url: configuration.application.base_url,
         };
-        let server = run(listener, state);
+        let server = Application::run(listener, state);
 
         Ok(Self { port, server })
     }
@@ -66,19 +66,19 @@ impl Application {
     pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
         self.server.await
     }
-}
 
-pub fn get_connection_pool(db_settings: &DatabaseSettings) -> PgPool {
-    PgPoolOptions::new().connect_lazy_with(db_settings.connect_options())
-}
+    fn run(listener: TokioTcpListener, state: AppState) -> AppServer {
+        let app = Router::new()
+            .route("/health-check", get(health_check))
+            .route("/subscriptions/confirm", get(confirm))
+            .route("/subscriptions", post(subscribe))
+            .layer(TraceLayer::new_for_http().make_span_with(MakeSpanWithRequestId))
+            .with_state(state);
 
-fn run(listener: TokioTcpListener, state: AppState) -> AppServer {
-    let app = Router::new()
-        .route("/health-check", get(health_check))
-        .route("/subscriptions/confirm", get(confirm))
-        .route("/subscriptions", post(subscribe))
-        .layer(TraceLayer::new_for_http().make_span_with(MakeSpanWithRequestId))
-        .with_state(state);
+        axum::serve(listener, app)
+    }
 
-    axum::serve(listener, app)
+    pub fn get_connection_pool(db_settings: &DatabaseSettings) -> PgPool {
+        PgPoolOptions::new().connect_lazy_with(db_settings.connect_options())
+    }
 }
