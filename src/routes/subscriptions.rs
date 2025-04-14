@@ -1,4 +1,4 @@
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::domain::{EmailAddress, NewSubscriber, SubscriberName};
 use crate::email_client::EmailClient;
 use crate::startup::AppState;
 use axum::{Form, extract::State, http::StatusCode};
@@ -19,7 +19,7 @@ impl TryFrom<FormData> for NewSubscriber {
 
     fn try_from(value: FormData) -> Result<Self, Self::Error> {
         let name = SubscriberName::parse(value.name)?;
-        let email = SubscriberEmail::parse(value.email)?;
+        let email = EmailAddress::parse(value.email)?;
 
         Ok(Self { name, email })
     }
@@ -106,7 +106,7 @@ async fn insert_subscriber(
 #[tracing::instrument(name = "Sending confirmation email", skip(email_client, subscriber_email))]
 async fn send_confirmation_email(
     email_client: &EmailClient,
-    subscriber_email: SubscriberEmail,
+    subscriber_email: EmailAddress,
     base_url: String,
     token: &str,
 ) -> Result<(), reqwest::Error> {

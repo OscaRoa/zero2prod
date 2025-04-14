@@ -1,21 +1,16 @@
-use crate::domain::SubscriberEmail;
+use crate::domain::EmailAddress;
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, SecretString};
 
 pub struct EmailClient {
     http_client: Client,
     base_url: Url,
-    sender: SubscriberEmail,
+    sender: EmailAddress,
     authorization_token: SecretString,
 }
 
 impl EmailClient {
-    pub fn new(
-        base_url: Url,
-        sender: SubscriberEmail,
-        authorization_token: SecretString,
-        timeout: std::time::Duration,
-    ) -> Self {
+    pub fn new(base_url: Url, sender: EmailAddress, authorization_token: SecretString, timeout: std::time::Duration) -> Self {
         let http_client = Client::builder().timeout(timeout).build().unwrap();
         Self {
             http_client,
@@ -27,7 +22,7 @@ impl EmailClient {
 
     pub async fn send_email(
         &self,
-        recipient: SubscriberEmail,
+        recipient: EmailAddress,
         subject: &str,
         html_content: &str,
         text_content: &str,
@@ -65,7 +60,7 @@ struct SendEmailRequest<'a> {
 #[cfg(test)]
 mod tests {
     use super::EmailClient;
-    use crate::domain::SubscriberEmail;
+    use crate::domain::EmailAddress;
     use claims::{assert_err, assert_ok};
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
@@ -102,8 +97,8 @@ mod tests {
         Paragraph(1..10).fake()
     }
     /// Generate a random subscriber email
-    fn email() -> SubscriberEmail {
-        SubscriberEmail::parse(SafeEmail().fake()).unwrap()
+    fn email() -> EmailAddress {
+        EmailAddress::parse(SafeEmail().fake()).unwrap()
     }
 
     fn url(uri: String) -> Url {

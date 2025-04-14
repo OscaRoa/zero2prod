@@ -1,10 +1,10 @@
 use validator::ValidateEmail;
 
 #[derive(Debug)]
-pub struct SubscriberEmail(String);
+pub struct EmailAddress(String);
 
-impl SubscriberEmail {
-    pub fn parse(s: String) -> Result<SubscriberEmail, String> {
+impl EmailAddress {
+    pub fn parse(s: String) -> Result<EmailAddress, String> {
         if s.validate_email() {
             Ok(Self(s))
         } else {
@@ -13,7 +13,7 @@ impl SubscriberEmail {
     }
 }
 
-impl AsRef<str> for SubscriberEmail {
+impl AsRef<str> for EmailAddress {
     fn as_ref(&self) -> &str {
         &self.0
     }
@@ -21,7 +21,7 @@ impl AsRef<str> for SubscriberEmail {
 
 #[cfg(test)]
 mod tests {
-    use super::SubscriberEmail;
+    use super::EmailAddress;
     use claims::assert_err;
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
@@ -33,7 +33,7 @@ mod tests {
     fn invalid_emails_rejected() {
         let invalid_emails = vec!["", "namemail.com", "@mail.com"];
         for invalid_email in invalid_emails {
-            assert_err!(SubscriberEmail::parse(invalid_email.to_string()));
+            assert_err!(EmailAddress::parse(invalid_email.to_string()));
         }
     }
 
@@ -51,6 +51,6 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn valid_emails_are_parsed_successfully(valid_email: ValidEmailFixture) -> bool {
-        SubscriberEmail::parse(valid_email.0).is_ok()
+        EmailAddress::parse(valid_email.0).is_ok()
     }
 }

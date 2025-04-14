@@ -1,4 +1,4 @@
-use crate::domain::SubscriberEmail;
+use crate::domain::EmailAddress;
 use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use sqlx::postgres::{PgConnectOptions, PgSslMode};
@@ -18,8 +18,8 @@ pub struct EmailClientSettings {
 }
 
 impl EmailClientSettings {
-    pub fn sender(&self) -> Result<SubscriberEmail, String> {
-        SubscriberEmail::parse(self.sender_email.clone())
+    pub fn sender(&self) -> Result<EmailAddress, String> {
+        EmailAddress::parse(self.sender_email.clone())
     }
 
     pub fn timeout(&self) -> std::time::Duration {
