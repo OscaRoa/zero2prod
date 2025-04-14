@@ -26,6 +26,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           POSTGRES_DB: postgres
+          PGPORT: 5433
         ports:
           - 5432:5432
     steps:
@@ -58,7 +59,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install podman
 
       - name: Migrate database
-        run: SKIP_DB_INIT=true DB_PORT=5432 ./scripts/db_init.sh
+        run: SKIP_DB_INIT=true DB_PORT=5433 ./scripts/db_init.sh
 
       - name: Run tests
         run: cargo test --verbose
@@ -102,8 +103,9 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           POSTGRES_DB: postgres
+          PGPORT: 5433
         ports:
-          - 5432:5432
+          - 5433:5433
     steps:
       - uses: actions/checkout@v4
       - name: Install the Rust toolchain
