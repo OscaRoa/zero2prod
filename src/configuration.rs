@@ -101,9 +101,9 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
-    let environment_filename = format!("{}.yaml", environment.as_str());
+    let environment_filename = format!("{}.toml", environment.as_str());
     let settings = config::Config::builder()
-        .add_source(config::File::from(configuration_directory.join("base.yaml")))
+        .add_source(config::File::from(configuration_directory.join("base.toml")))
         .add_source(config::File::from(configuration_directory.join(environment_filename)))
         // Add in settings from environment variables (with a prefix of APP and '__' as separator)
         // E.g. `APP_APPLICATION__PORT=5001 would set `Settings.application.port`
