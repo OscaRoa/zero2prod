@@ -1,4 +1,4 @@
-use crate::configuration::{AppState, DatabaseSettings, Settings};
+use crate::configuration::{DatabaseSettings, Settings};
 use crate::email_client::EmailClient;
 use crate::routes::{confirm, health_check, subscribe};
 use crate::telemetry::MakeSpanWithRequestId;
@@ -18,6 +18,13 @@ type AppServer = Serve<TcpListener, Router, Router>;
 pub struct Application {
     port: u16,
     server: AppServer,
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: PgPool,
+    pub email_client: Arc<EmailClient>,
+    pub base_url: String,
 }
 
 impl Application {

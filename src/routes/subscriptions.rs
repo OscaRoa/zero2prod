@@ -1,6 +1,6 @@
-use crate::configuration::AppState;
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
 use crate::email_client::EmailClient;
+use crate::startup::AppState;
 use axum::{Form, extract::State, http::StatusCode};
 use chrono::Utc;
 use rand::distr::Alphanumeric;

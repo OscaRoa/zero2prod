@@ -1,4 +1,4 @@
-use crate::configuration::AppState;
+use crate::startup::AppState;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use sqlx::PgPool;
