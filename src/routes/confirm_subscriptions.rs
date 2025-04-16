@@ -5,13 +5,13 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]
-pub struct ConfirmationToken {
+pub struct ConfirmParameters {
     token: String,
 }
 
-#[tracing::instrument(name = "Confirm a pending subscriber", skip(state, confirmation_token))]
-pub async fn confirm(State(state): State<AppState>, confirmation_token: Query<ConfirmationToken>) -> StatusCode {
-    let id = match get_subscriber_id_from_token(&state.db, &confirmation_token.token).await {
+#[tracing::instrument(name = "Confirm a pending subscriber", skip(state, parameters))]
+pub async fn confirm(State(state): State<AppState>, parameters: Query<ConfirmParameters>) -> StatusCode {
+    let id = match get_subscriber_id_from_token(&state.db, &parameters.token).await {
         Ok(id) => id,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
@@ -47,8 +47,6 @@ pub async fn get_subscriber_id_from_token(
     pool: &PgPool,
     subscription_token: &str,
 ) -> Result<Option<Uuid>, sqlx::Error> {
-    dbg!(subscription_token);
-
     let result = sqlx::query!(
         "SELECT subscriber_id FROM subscription_tokens \
         WHERE subscription_token = $1",
@@ -61,6 +59,5 @@ pub async fn get_subscriber_id_from_token(
         e
     })?;
 
-    dbg!(&result);
     Ok(result.map(|r| r.subscriber_id))
 }
