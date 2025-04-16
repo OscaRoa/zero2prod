@@ -37,7 +37,7 @@ impl TryFrom<FormData> for NewSubscriber {
 pub async fn subscribe(
     State(state): State<AppState>,
     Form(form): Form<FormData>,
-) -> Result<String, (StatusCode, String)> {
+) -> Result<StatusCode, (StatusCode, String)> {
     let new_subscriber: NewSubscriber = match form.try_into() {
         Ok(form) => form,
         Err(e) => return Err((StatusCode::BAD_REQUEST, e.to_string())),
@@ -72,7 +72,7 @@ pub async fn subscribe(
     )
     .await
     {
-        Ok(_) => Ok(StatusCode::OK.to_string()),
+        Ok(_) => Ok(StatusCode::OK),
         Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
 }
