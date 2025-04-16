@@ -21,7 +21,7 @@ pub struct Application {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db: PgPool,
+    pub db: Arc<PgPool>,
     pub email_client: Arc<EmailClient>,
     pub base_url: String,
 }
@@ -49,7 +49,7 @@ impl Application {
         let port = listener.local_addr()?.port();
 
         let state = AppState {
-            db: connection_pool,
+            db: Arc::new(connection_pool),
             email_client: Arc::new(email_client),
             base_url: configuration.application.base_url,
         };
