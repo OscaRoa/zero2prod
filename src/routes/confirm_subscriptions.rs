@@ -1,3 +1,4 @@
+use crate::domain::{SubscriptionToken, TokenError};
 use crate::startup::AppState;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -9,9 +10,24 @@ pub struct ConfirmParameters {
     token: String,
 }
 
+impl TryFrom<Query<ConfirmParameters>> for SubscriptionToken {
+    type Error = TokenError;
+
+    fn try_from(value: Query<ConfirmParameters>) -> Result<Self, Self::Error> {
+        let token = SubscriptionToken::parse(&value.token)?;
+
+        Ok(Self(token.0))
+    }
+}
+
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(state, parameters))]
 pub async fn confirm(State(state): State<AppState>, parameters: Query<ConfirmParameters>) -> StatusCode {
-    let subscriber_info = match get_subscriber_info_from_token(&state.db, &parameters.token).await {
+    let token: SubscriptionToken = match parameters.try_into() {
+        Ok(token) => token,
+        Err(_) => return StatusCode::BAD_REQUEST,
+    };
+
+    let subscriber_info = match get_subscriber_info_from_token(&state.db, token.as_ref()).await {
         Ok(info) => info,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
