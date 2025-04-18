@@ -1,23 +1,21 @@
-use crate::domain::{EmailAddress, NewSubscriber, SubscriberName};
+use crate::domain::{EmailAddress, NewSubscriber, SubscriberName, SubscriptionToken};
 use crate::email_client::EmailClient;
 use crate::startup::AppState;
 use axum::{Form, extract::State, http::StatusCode};
 use chrono::Utc;
-use rand::distr::Alphanumeric;
-use rand::{Rng, rng};
 use sqlx::{Executor, Postgres, Transaction};
 use uuid::{ContextV7, Timestamp, Uuid};
 
 #[derive(serde::Deserialize)]
-pub struct FormData {
+pub struct NewSubscriptionForm {
     email: String,
     name: String,
 }
 
-impl TryFrom<FormData> for NewSubscriber {
+impl TryFrom<NewSubscriptionForm> for NewSubscriber {
     type Error = String;
 
-    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+    fn try_from(value: NewSubscriptionForm) -> Result<Self, Self::Error> {
         let name = SubscriberName::parse(value.name)?;
         let email = EmailAddress::parse(value.email)?;
 
@@ -36,7 +34,7 @@ impl TryFrom<FormData> for NewSubscriber {
 )]
 pub async fn subscribe(
     State(state): State<AppState>,
-    Form(form): Form<FormData>,
+    Form(form): Form<NewSubscriptionForm>,
 ) -> Result<StatusCode, (StatusCode, String)> {
     let new_subscriber: NewSubscriber = match form.try_into() {
         Ok(form) => form,
@@ -52,9 +50,9 @@ pub async fn subscribe(
         Ok(id) => id,
         Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     };
-    let subscription_token = generate_subscription_token();
+    let subscription_token = SubscriptionToken::new();
 
-    match store_token(&mut transaction, subscriber_id, &subscription_token).await {
+    match store_token(&mut transaction, subscriber_id, subscription_token.as_ref()).await {
         Ok(_) => (),
         Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
@@ -68,12 +66,12 @@ pub async fn subscribe(
         &state.email_client,
         new_subscriber.email,
         state.base_url,
-        &subscription_token,
+        subscription_token.as_ref(),
     )
     .await
     {
         Ok(_) => Ok(StatusCode::OK),
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
 }
 
@@ -119,14 +117,6 @@ async fn send_confirmation_email(
     email_client
         .send_email(subscriber_email, "Welcome!", &html_body, &plain_body)
         .await
-}
-
-fn generate_subscription_token() -> String {
-    let mut rng = rng();
-    std::iter::repeat_with(|| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(25)
-        .collect()
 }
 
 #[tracing::instrument(
