@@ -1,7 +1,6 @@
 use rand::distr::{Alphanumeric, SampleString};
 use rand::prelude::ThreadRng;
 use rand::rng;
-use serde::Deserialize;
 
 const TOKEN_LENGTH: usize = 25;
 
@@ -11,7 +10,7 @@ pub enum TokenError {
     InvalidFormat,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct SubscriptionToken(pub String);
 
 impl AsRef<str> for SubscriptionToken {
