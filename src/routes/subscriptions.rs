@@ -73,7 +73,7 @@ pub async fn subscribe(
     .await
     {
         Ok(_) => Ok(StatusCode::OK),
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
 }
 
