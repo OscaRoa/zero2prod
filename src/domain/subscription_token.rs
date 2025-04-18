@@ -60,8 +60,8 @@ mod tests {
     #[test]
     fn test_token_generation() {
         let token = SubscriptionToken::new();
-        assert_eq!(token.as_ref().len(), TOKEN_LENGTH);
-        assert!(token.as_ref().chars().all(|c| c.is_ascii_alphanumeric()));
+        assert_eq!(token.0.len(), TOKEN_LENGTH);
+        assert!(token.0.chars().all(|c| c.is_ascii_alphanumeric()));
     }
 
     #[test]
