@@ -1,10 +1,43 @@
 use crate::domain::{EmailAddress, NewSubscriber, SubscriberName, SubscriptionToken};
 use crate::email_client::EmailClient;
 use crate::startup::AppState;
+use anyhow::Context;
+use axum::response::{IntoResponse, Response};
 use axum::{Form, extract::State, http::StatusCode};
 use chrono::Utc;
 use sqlx::{Executor, Postgres, Transaction};
 use uuid::{ContextV7, Timestamp, Uuid};
+
+#[derive(thiserror::Error)]
+pub enum SubscriptionError {
+    #[error("{0}")]
+    ValidationError(String),
+
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl std::fmt::Debug for SubscriptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl IntoResponse for SubscriptionError {
+    fn into_response(self) -> Response {
+        let status = match self {
+            SubscriptionError::ValidationError(e) => {
+                tracing::debug!("Validation Error: {e:?}");
+                StatusCode::BAD_REQUEST
+            }
+            SubscriptionError::UnexpectedError(e) => {
+                tracing::error!("Unexpected Error: {e:?}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        };
+        status.into_response()
+    }
+}
 
 #[derive(serde::Deserialize)]
 pub struct NewSubscriptionForm {
@@ -35,44 +68,40 @@ impl TryFrom<NewSubscriptionForm> for NewSubscriber {
 pub async fn subscribe(
     State(state): State<AppState>,
     Form(form): Form<NewSubscriptionForm>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let new_subscriber: NewSubscriber = match form.try_into() {
-        Ok(form) => form,
-        Err(e) => return Err((StatusCode::BAD_REQUEST, e.to_string())),
-    };
+) -> Result<StatusCode, SubscriptionError> {
+    let new_subscriber = form.try_into().map_err(SubscriptionError::ValidationError)?;
 
-    let mut transaction = match state.db.begin().await {
-        Ok(transaction) => transaction,
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    };
+    let mut transaction = state
+        .db
+        .begin()
+        .await
+        .context("Failed to acquire a Postgres connection from the pool")?;
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
-        Ok(id) => id,
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    };
+    let subscriber_id = insert_subscriber(&mut transaction, &new_subscriber)
+        .await
+        .context("Failed to insert new subscriber in the database")?;
+
     let subscription_token = SubscriptionToken::new();
 
-    match store_token(&mut transaction, subscriber_id, subscription_token.as_ref()).await {
-        Ok(_) => (),
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    }
+    store_token(&mut transaction, subscriber_id, subscription_token.as_ref())
+        .await
+        .context("Failed to store the confirmation token for a new subscriber")?;
 
-    match transaction.commit().await {
-        Ok(_) => (),
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    }
+    transaction
+        .commit()
+        .await
+        .context("Failed to commit SQL transaction to store a new subscriber")?;
 
-    match send_confirmation_email(
+    send_confirmation_email(
         &state.email_client,
         new_subscriber.email,
         state.base_url,
         subscription_token.as_ref(),
     )
     .await
-    {
-        Ok(_) => Ok(StatusCode::OK),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-    }
+    .context("Failed to send confirmation email")?;
+
+    Ok(StatusCode::OK)
 }
 
 #[tracing::instrument(name = "Saving new subscriber in DB", skip(transaction, new_subscriber))]
@@ -93,10 +122,7 @@ async fn insert_subscriber(
         Utc::now()
     );
 
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    transaction.execute(query).await?;
 
     Ok(subscriber_id)
 }
@@ -127,7 +153,7 @@ pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), StoreTokenError> {
     dbg!(subscriber_id, subscription_token);
 
     let query = sqlx::query!(
@@ -137,10 +163,40 @@ pub async fn store_token(
         subscriber_id
     );
 
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    transaction.execute(query).await.map_err(StoreTokenError)?;
 
+    Ok(())
+}
+
+pub struct StoreTokenError(sqlx::Error);
+
+impl std::error::Error for StoreTokenError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+impl std::fmt::Debug for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl std::fmt::Display for StoreTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "A database failure was encountered while trying to store a subscription token."
+        )
+    }
+}
+
+pub fn error_chain_fmt(e: &impl std::error::Error, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    writeln!(f, "{}\n", e)?;
+    let mut current = e.source();
+    while let Some(cause) = current {
+        writeln!(f, "Caused by:\n\t{}", cause)?;
+        current = cause.source();
+    }
     Ok(())
 }

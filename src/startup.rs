@@ -71,7 +71,11 @@ impl Application {
             .route("/health-check", get(health_check))
             .route("/subscriptions/confirm", get(confirm))
             .route("/subscriptions", post(subscribe))
-            .layer(TraceLayer::new_for_http().make_span_with(MakeSpanWithRequestId))
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(MakeSpanWithRequestId)
+                    .on_failure(()),
+            )
             .with_state(state);
 
         axum::serve(listener, app)
