@@ -26,8 +26,14 @@ impl std::fmt::Debug for SubscriptionError {
 impl IntoResponse for SubscriptionError {
     fn into_response(self) -> Response {
         let status = match self {
-            SubscriptionError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            SubscriptionError::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            SubscriptionError::ValidationError(e) => {
+                tracing::debug!("Validation Error: {e:?}");
+                StatusCode::BAD_REQUEST
+            }
+            SubscriptionError::UnexpectedError(e) => {
+                tracing::error!("Unexpected Error: {e:?}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
         };
         status.into_response()
     }
