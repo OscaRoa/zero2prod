@@ -1,4 +1,4 @@
-use crate::domain::{SubscriptionToken, TokenError};
+use crate::domain::SubscriptionToken;
 use crate::startup::AppState;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
@@ -11,7 +11,7 @@ pub struct ConfirmParameters {
 }
 
 impl TryFrom<Query<ConfirmParameters>> for SubscriptionToken {
-    type Error = TokenError;
+    type Error = String;
 
     fn try_from(value: Query<ConfirmParameters>) -> Result<Self, Self::Error> {
         let token = SubscriptionToken::parse(&value.token)?;
