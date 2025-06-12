@@ -13,8 +13,8 @@ pub enum ConfirmSubscriptionError {
     #[error("{0}")]
     ValidationError(String),
 
-    #[error("{0}")]
-    NotFoundError(String),
+    #[error("There is no subscriber associated with the provided token.")]
+    UnknownToken,
 
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
@@ -33,7 +33,7 @@ impl IntoResponse for ConfirmSubscriptionError {
                 tracing::debug!("Validation Error: {e:?}");
                 StatusCode::BAD_REQUEST
             }
-            ConfirmSubscriptionError::NotFoundError(_) => StatusCode::NOT_FOUND,
+            ConfirmSubscriptionError::UnknownToken => StatusCode::UNAUTHORIZED,
             ConfirmSubscriptionError::UnexpectedError(e) => {
                 tracing::error!("Unexpected Error: {e:?}");
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -69,26 +69,18 @@ pub async fn confirm(
 
     let subscriber_info = get_subscriber_info_from_token(&state.db, token.as_ref())
         .await
-        .context("Failed to get subscriber info from token")?;
+        .context("Failed to get subscriber info from token")?
+        .ok_or(ConfirmSubscriptionError::UnknownToken)?;
 
-    match subscriber_info {
-        // Non-existing token!
-        None => Err(ConfirmSubscriptionError::NotFoundError(
-            "Subscriber info not found".to_string(),
-        )),
-        Some(subscriber_info) => {
-            let status = subscriber_info.1;
-            if status == "confirmed" {
-                return Ok(StatusCode::OK);
-            }
-
-            confirm_subscriber(&state.db, subscriber_info.0)
-                .await
-                .context("Failed to confirm subscriber")?;
-
-            Ok(StatusCode::OK)
-        }
+    if subscriber_info.1 == "confirmed" {
+        return Ok(StatusCode::OK);
     }
+
+    confirm_subscriber(&state.db, subscriber_info.0)
+        .await
+        .context("Failed to confirm subscriber")?;
+
+    Ok(StatusCode::OK)
 }
 
 #[tracing::instrument(name = "Mark subscriber as confirmed", skip(subscriber_id, pool))]
