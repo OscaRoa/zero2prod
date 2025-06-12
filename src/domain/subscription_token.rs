@@ -22,10 +22,10 @@ impl SubscriptionToken {
         let chars_count = s.len();
 
         if !s.chars().all(|c| c.is_ascii_alphanumeric()) || chars_count != TOKEN_LENGTH {
-            return Err("Invalid token".to_string());
+            Err("Invalid token".to_string())
+        } else {
+            Ok(Self(s.to_string()))
         }
-
-        Ok(Self(s.to_string()))
     }
 
     fn generate_token_with_rng(rng: &mut ThreadRng) -> Self {
