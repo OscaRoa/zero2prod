@@ -5,12 +5,6 @@ use rand::rng;
 const TOKEN_LENGTH: usize = 25;
 
 #[derive(Debug)]
-pub enum TokenError {
-    InvalidLength { expected: usize, actual: usize },
-    InvalidFormat,
-}
-
-#[derive(Debug)]
 pub struct SubscriptionToken(pub String);
 
 impl AsRef<str> for SubscriptionToken {
@@ -24,20 +18,14 @@ impl SubscriptionToken {
         Self::generate_token_with_rng(&mut rng())
     }
 
-    pub fn parse(s: &str) -> Result<Self, TokenError> {
+    pub fn parse(s: &str) -> Result<Self, String> {
         let chars_count = s.len();
-        if chars_count != TOKEN_LENGTH {
-            return Err(TokenError::InvalidLength {
-                expected: TOKEN_LENGTH,
-                actual: chars_count,
-            });
-        }
 
-        if !s.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return Err(TokenError::InvalidFormat);
+        if !s.chars().all(|c| c.is_ascii_alphanumeric()) || chars_count != TOKEN_LENGTH {
+            Err("Invalid token".to_string())
+        } else {
+            Ok(Self(s.to_string()))
         }
-
-        Ok(Self(s.to_string()))
     }
 
     fn generate_token_with_rng(rng: &mut ThreadRng) -> Self {
@@ -73,14 +61,7 @@ mod tests {
     #[test]
     fn test_invalid_length_token() {
         let short_token = "abc";
-        let result = SubscriptionToken::parse(short_token);
-        assert!(matches!(
-            result,
-            Err(TokenError::InvalidLength {
-                expected: TOKEN_LENGTH,
-                actual: 3
-            })
-        ));
+        assert_err!(SubscriptionToken::parse(short_token));
     }
 
     #[test]
