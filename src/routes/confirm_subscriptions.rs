@@ -1,9 +1,47 @@
 use crate::domain::SubscriptionToken;
+use crate::routes::error_chain_fmt;
 use crate::startup::AppState;
+use anyhow::Context;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+#[derive(thiserror::Error)]
+pub enum ConfirmSubscriptionError {
+    #[error("{0}")]
+    ValidationError(String),
+
+    #[error("{0}")]
+    NotFoundError(String),
+
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl std::fmt::Debug for ConfirmSubscriptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+impl IntoResponse for ConfirmSubscriptionError {
+    fn into_response(self) -> axum::response::Response {
+        let status = match self {
+            ConfirmSubscriptionError::ValidationError(e) => {
+                tracing::debug!("Validation Error: {e:?}");
+                StatusCode::BAD_REQUEST
+            }
+            ConfirmSubscriptionError::NotFoundError(_) => StatusCode::NOT_FOUND,
+            ConfirmSubscriptionError::UnexpectedError(e) => {
+                tracing::error!("Unexpected Error: {e:?}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+        };
+        status.into_response()
+    }
+}
 
 #[derive(serde::Deserialize, Debug)]
 pub struct ConfirmParameters {
@@ -21,29 +59,34 @@ impl TryFrom<Query<ConfirmParameters>> for SubscriptionToken {
 }
 
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(state, parameters))]
-pub async fn confirm(State(state): State<AppState>, parameters: Query<ConfirmParameters>) -> StatusCode {
-    let token: SubscriptionToken = match parameters.try_into() {
-        Ok(token) => token,
-        Err(_) => return StatusCode::BAD_REQUEST,
-    };
+pub async fn confirm(
+    State(state): State<AppState>,
+    parameters: Query<ConfirmParameters>,
+) -> Result<StatusCode, ConfirmSubscriptionError> {
+    let token: SubscriptionToken = parameters
+        .try_into()
+        .map_err(ConfirmSubscriptionError::ValidationError)?;
 
-    let subscriber_info = match get_subscriber_info_from_token(&state.db, token.as_ref()).await {
-        Ok(info) => info,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
-    };
+    let subscriber_info = get_subscriber_info_from_token(&state.db, token.as_ref())
+        .await
+        .context("Failed to get subscriber info from token")?;
 
     match subscriber_info {
         // Non-existing token!
-        None => StatusCode::UNAUTHORIZED,
+        None => Err(ConfirmSubscriptionError::NotFoundError(
+            "Subscriber info not found".to_string(),
+        )),
         Some(subscriber_info) => {
             let status = subscriber_info.1;
             if status == "confirmed" {
-                return StatusCode::OK;
+                return Ok(StatusCode::OK);
             }
-            if confirm_subscriber(&state.db, subscriber_info.0).await.is_err() {
-                return StatusCode::INTERNAL_SERVER_ERROR;
-            }
-            StatusCode::OK
+
+            confirm_subscriber(&state.db, subscriber_info.0)
+                .await
+                .context("Failed to confirm subscriber")?;
+
+            Ok(StatusCode::OK)
         }
     }
 }
@@ -55,22 +98,14 @@ pub async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<()
         subscriber_id,
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute subscriptions query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     sqlx::query!(
         r#"UPDATE subscription_tokens SET status = 'confirmed' WHERE subscriber_id = $1"#,
         subscriber_id,
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute subscription_tokens query: {:?}", e);
-        e
-    })?;
+    .await?;
     Ok(())
 }
 
@@ -85,11 +120,7 @@ pub async fn get_subscriber_info_from_token(
         subscription_token,
     )
     .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     Ok(result.map(|r| (r.subscriber_id, r.status)))
 }
